@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>명절치킨배 솔랭 점수 트래커</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap');
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #1a202c;
+            color: #e2e8f0;
+        }
+        .card {
+            background-color: #2d3748;
+            border: 1px solid #4a5568;
+        }
+        .btn {
+            transition: all 0.2s ease-in-out;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .history-item {
+            border-left: 3px solid #4a5568;
+        }
+        .history-win { border-color: #38a169; }
+        .history-loss { border-color: #e53e3e; }
+        .history-snipe { border-color: #d69e2e; }
+        .screenshot-link {
+            word-break: break-all;
+        }
+        #login-container, #app-container {
+            min-height: 100vh;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <!-- 로그인 화면 -->
+    <div id="login-container" class="flex items-center justify-center p-4">
+        <div class="w-full max-w-sm">
+            <div class="card rounded-xl shadow-2xl p-8">
+                <h1 class="text-3xl font-bold text-center mb-2 text-yellow-400">솔랭 점수내기</h1>
+                <p class="text-center text-gray-400 mb-8">로그인이 필요합니다</p>
+                <div class="space-y-4">
+                    <div>
+                        <label for="username" class="block text-sm font-medium text-gray-300">아이디</label>
+                        <input type="text" id="username" class="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-yellow-500 focus:border-yellow-500" value="admin">
+                    </div>
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-300">비밀번호</label>
+                        <input type="password" id="password" class="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-yellow-500 focus:border-yellow-500" value="gun123">
+                    </div>
+                </div>
+                <div id="error-message" class="text-red-400 text-sm mt-4 text-center h-5"></div>
+                <div class="mt-6 space-y-4">
+                    <button onclick="handleLogin()" class="w-full btn bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-2 px-4 rounded-md shadow-lg">
+                        관리자 로그인
+                    </button>
+                    <button onclick="enterAsGuest()" class="w-full btn bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-md shadow-lg">
+                        게스트로 보기
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 메인 앱 화면 -->
+    <div id="app-container" class="hidden">
+        <div class="container mx-auto p-4 md:p-8">
+            <header class="flex flex-col md:flex-row justify-between items-center mb-8">
+                <h1 class="text-4xl font-bold text-yellow-400 mb-4 md:mb-0">명절치킨배 솔랭 점수판</h1>
+                <button onclick="logout()" class="btn bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md">
+                    <i class="fas fa-sign-out-alt mr-2"></i>로그아웃
+                </button>
+            </header>
+
+            <!-- 관리자 컨트롤 패널 -->
+            <div id="admin-controls" class="hidden card rounded-xl shadow-lg p-6 mb-8">
+                <h2 class="text-2xl font-semibold mb-4 text-yellow-300">관리자 패널</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="text" id="new-participant-name" placeholder="참가자 이름 (예: 파뚝이)" class="w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-yellow-500 focus:border-yellow-500">
+                    <input type="text" id="new-participant-tier" placeholder="현재 티어 (예: 에메4 0포)" class="w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-yellow-500 focus:border-yellow-500">
+                </div>
+                <button onclick="addParticipant()" class="mt-4 w-full md:w-auto btn bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md">
+                    <i class="fas fa-plus mr-2"></i>참가자 추가
+                </button>
+            </div>
+            
+            <!-- 팀별 점수판 -->
+            <div id="teams-container" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- 1팀 -->
+                <div id="team-1-section">
+                    <div class="card rounded-xl p-6 shadow-lg mb-4 flex justify-between items-center">
+                        <h2 class="text-3xl font-bold text-blue-400">1팀</h2>
+                        <div class="text-right">
+                            <p class="text-gray-400 text-sm">팀 총점</p>
+                            <p id="team-1-score" class="text-4xl font-bold text-blue-400">0</p>
+                        </div>
+                    </div>
+                    <div id="team-1-members" class="space-y-6"></div>
+                </div>
+
+                <!-- 2팀 -->
+                <div id="team-2-section">
+                    <div class="card rounded-xl p-6 shadow-lg mb-4 flex justify-between items-center">
+                        <h2 class="text-3xl font-bold text-red-400">2팀</h2>
+                        <div class="text-right">
+                            <p class="text-gray-400 text-sm">팀 총점</p>
+                            <p id="team-2-score" class="text-4xl font-bold text-red-400">0</p>
+                        </div>
+                    </div>
+                    <div id="team-2-members" class="space-y-6"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // --- STATE MANAGEMENT ---
+    let state = {
+        isAdmin: false,
+        participants: [
+            {
+                id: 1,
+                name: "파뚝이",
+                tier: "에메4 0포",
+                score: 0,
+                team: 1,
+                history: [],
+                screenshots: [],
+                comment: "개인 고득점자 황올+치즈볼 쿠폰!"
+            }
+        ]
+    };
+
+    // --- INITIALIZATION ---
+    document.addEventListener('DOMContentLoaded', () => {
+        loadState();
+        if (sessionStorage.getItem('isLoggedIn') === 'true') {
+            state.isAdmin = sessionStorage.getItem('isAdmin') === 'true';
+            showApp();
+        }
+    });
+
+    // --- DATA PERSISTENCE ---
+    function saveState() {
+        localStorage.setItem('scoreTrackerState', JSON.stringify(state.participants));
+    }
+
+    function loadState() {
+        const savedState = localStorage.getItem('scoreTrackerState');
+        if (savedState) {
+            state.participants = JSON.parse(savedState);
+        }
+    }
+
+    // --- LOGIN & UI TOGGLE ---
+    function handleLogin() {
+        const user = document.getElementById('username').value;
+        const pass = document.getElementById('password').value;
+        const errorMessage = document.getElementById('error-message');
+        
+        if (user === 'admin' && pass === 'gun123') {
+            state.isAdmin = true;
+            sessionStorage.setItem('isLoggedIn', 'true');
+            sessionStorage.setItem('isAdmin', 'true');
+            showApp();
+        } else {
+            errorMessage.textContent = '아이디 또는 비밀번호가 틀렸습니다.';
+        }
+    }
+
+    function enterAsGuest() {
+        state.isAdmin = false;
+        sessionStorage.setItem('isLoggedIn', 'true');
+        sessionStorage.setItem('isAdmin', 'false');
+        showApp();
+    }
+
+    function showApp() {
+        document.getElementById('login-container').classList.add('hidden');
+        document.getElementById('app-container').classList.remove('hidden');
+        render();
+    }
+
+    function logout() {
+        sessionStorage.clear();
+        state.isAdmin = false;
+        document.getElementById('app-container').classList.add('hidden');
+        document.getElementById('login-container').classList.remove('hidden');
+        document.getElementById('error-message').textContent = '';
+        document.getElementById('password').value = '';
+    }
+
+    // --- CORE LOGIC ---
+    function addParticipant() {
+        const nameInput = document.getElementById('new-participant-name');
+        const tierInput = document.getElementById('new-participant-tier');
+        const name = nameInput.value.trim();
+        const tier = tierInput.value.trim();
+
+        if (name && tier) {
+            const newParticipant = {
+                id: Date.now(),
+                name,
+                tier,
+                score: 0,
+                team: 0, // 0 for unassigned
+                history: [],
+                screenshots: [],
+                comment: ""
+            };
+            state.participants.push(newParticipant);
+            nameInput.value = '';
+            tierInput.value = '';
+            renderAndSave();
+        }
+    }
+
+    function deleteParticipant(id) {
+        // 확인 창(confirm)이 일부 환경에서 작동하지 않아 버튼이 눌리지 않는 문제를 해결했습니다.
+        // 이제 삭제 버튼을 누르면 확인 절차 없이 즉시 삭제됩니다.
+        state.participants = state.participants.filter(p => p.id !== id);
+        renderAndSave();
+    }
+
+    function updateScore(id, type) {
+        const participant = state.participants.find(p => p.id === id);
+        if (!participant) return;
+
+        let change = 0;
+        let typeText = '';
+        if (type === 'win') {
+            change = 20;
+            typeText = '승리';
+        } else if (type === 'loss') {
+            change = -20;
+            typeText = '패배';
+        } else if (type === 'snipe') {
+            change = 5;
+            typeText = '저격 성공';
+        }
+        
+        participant.score += change;
+        participant.history.unshift({
+            type: type,
+            change: change > 0 ? `+${change}` : change,
+            text: typeText,
+            timestamp: new Date().toLocaleString('ko-KR')
+        });
+        renderAndSave();
+    }
+
+    function assignTeam(id, team) {
+        const participant = state.participants.find(p => p.id === id);
+        if (participant) {
+            participant.team = parseInt(team);
+            renderAndSave();
+        }
+    }
+
+    function addScreenshot(id) {
+        const url = prompt('스크린샷 이미지 URL을 입력하세요:');
+        if (url && url.trim() !== '') {
+            const participant = state.participants.find(p => p.id === id);
+            if (participant) {
+                participant.screenshots.unshift({
+                    url: url.trim(),
+                    timestamp: new Date().toLocaleString('ko-KR')
+                });
+                renderAndSave();
+            }
+        }
+    }
+
+    function updateComment(id) {
+        const participant = state.participants.find(p => p.id === id);
+        if (participant) {
+            const newComment = prompt('새 코멘트를 입력하세요:', participant.comment);
+            if (newComment !== null) { // Handles cancel button
+                participant.comment = newComment;
+                renderAndSave();
+            }
+        }
+    }
+    
+    function renderAndSave() {
+        render();
+        saveState();
+    }
+
+    // --- RENDER FUNCTION ---
+    function render() {
+        if (state.isAdmin) {
+            document.getElementById('admin-controls').classList.remove('hidden');
+        } else {
+            document.getElementById('admin-controls').classList.add('hidden');
+        }
+        
+        const team1Members = document.getElementById('team-1-members');
+        const team2Members = document.getElementById('team-2-members');
+        const unassignedMembers = document.createElement('div'); // For unassigned players
+        unassignedMembers.id = 'unassigned-members';
+        
+        team1Members.innerHTML = '';
+        team2Members.innerHTML = '';
+
+        let team1Score = 0;
+        let team2Score = 0;
+
+        state.participants.sort((a,b) => (b.score - a.score)).forEach(p => {
+            const participantCard = document.createElement('div');
+            participantCard.className = 'card rounded-xl shadow-lg p-5';
+            participantCard.innerHTML = `
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
+                    <div>
+                        <p class="text-2xl font-bold">${p.name}</p>
+                        <p class="text-sm text-gray-400">${p.tier}</p>
+                    </div>
+                    <div class="text-right mt-2 sm:mt-0">
+                        <p class="text-gray-400 text-sm">현재 점수</p>
+                        <p class="text-4xl font-bold ${p.score > 0 ? 'text-green-400' : p.score < 0 ? 'text-red-400' : ''}">${p.score}</p>
+                    </div>
+                </div>
+
+                <!-- 점수 버튼 -->
+                <div class="grid grid-cols-3 gap-2 my-4">
+                    <button onclick="updateScore(${p.id}, 'win')" class="btn bg-green-600 hover:bg-green-700 text-white font-bold p-2 rounded-md text-sm"><i class="fas fa-arrow-up mr-1"></i>승리 (+20)</button>
+                    <button onclick="updateScore(${p.id}, 'loss')" class="btn bg-red-600 hover:bg-red-700 text-white font-bold p-2 rounded-md text-sm"><i class="fas fa-arrow-down mr-1"></i>패배 (-20)</button>
+                    <button onclick="updateScore(${p.id}, 'snipe')" class="btn bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold p-2 rounded-md text-sm"><i class="fas fa-crosshairs mr-1"></i>저격 (+5)</button>
+                </div>
+                
+                <!-- 관리자 기능 -->
+                <div class="admin-only ${state.isAdmin ? '' : 'hidden'} border-t border-gray-600 pt-4 mt-4 space-y-4">
+                     <div class="flex items-center justify-between">
+                        <label class="text-sm font-medium">팀 배정:</label>
+                        <select onchange="assignTeam(${p.id}, this.value)" class="bg-gray-700 border border-gray-600 rounded-md py-1 px-2 text-white">
+                            <option value="1" ${p.team === 1 ? 'selected' : ''}>1팀</option>
+                            <option value="2" ${p.team === 2 ? 'selected' : ''}>2팀</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center justify-between">
+                         <p class="text-sm font-medium">코멘트: <span class="text-gray-300 italic">"${p.comment || '없음'}"</span></p>
+                         <button onclick="updateComment(${p.id})" class="text-sm text-blue-400 hover:text-blue-300"><i class="fas fa-edit"></i></button>
+                    </div>
+                    <button onclick="deleteParticipant(${p.id})" class="w-full btn bg-red-800 hover:bg-red-900 text-white font-bold py-1 px-2 rounded-md text-xs"><i class="fas fa-trash-alt mr-2"></i>참가자 삭제</button>
+                </div>
+                
+                <!-- 탭 메뉴 -->
+                <div class="mt-4">
+                    <div class="flex border-b border-gray-600">
+                        <button class="tab-btn flex-1 py-2 text-sm font-medium text-gray-400 border-b-2 border-transparent hover:text-white focus:outline-none active-tab" data-tab="history-${p.id}">전적</button>
+                        <button class="tab-btn flex-1 py-2 text-sm font-medium text-gray-400 border-b-2 border-transparent hover:text-white focus:outline-none" data-tab="screenshots-${p.id}">증빙 스크린샷</button>
+                    </div>
+                    <div id="history-${p.id}" class="tab-content py-4 max-h-48 overflow-y-auto">
+                        ${p.history.length > 0 ? p.history.map(h => `
+                            <div class="history-item history-${h.type} p-2 mb-2 rounded-r-md">
+                                <p class="font-semibold">${h.text} <span class="text-${h.type === 'win' || h.type === 'snipe' ? 'green' : 'red'}-400">(${h.change})</span></p>
+                                <p class="text-xs text-gray-500">${h.timestamp}</p>
+                            </div>
+                        `).join('') : '<p class="text-sm text-gray-500 text-center">기록이 없습니다.</p>'}
+                    </div>
+                    <div id="screenshots-${p.id}" class="tab-content py-4 hidden max-h-48 overflow-y-auto">
+                        <button onclick="addScreenshot(${p.id})" class="w-full btn bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-md mb-4 text-sm"><i class="fas fa-camera mr-2"></i>스크린샷 추가</button>
+                        ${p.screenshots.length > 0 ? p.screenshots.map(s => `
+                            <div class="p-2 mb-2 bg-gray-800 rounded-md">
+                               <p class="text-xs text-gray-500 mb-1">${s.timestamp}</p>
+                               <a href="${s.url}" target="_blank" rel="noopener noreferrer" class="screenshot-link text-blue-400 hover:underline text-sm">${s.url}</a>
+                            </div>
+                        `).join('') : '<p class="text-sm text-gray-500 text-center">등록된 스크린샷이 없습니다.</p>'}
+                    </div>
+                </div>
+            `;
+
+            if (p.team === 1) {
+                team1Members.appendChild(participantCard);
+                team1Score += p.score;
+            } else {
+                team2Members.appendChild(participantCard);
+                team2Score += p.score;
+            }
+        });
+
+        document.getElementById('team-1-score').textContent = team1Score;
+        document.getElementById('team-2-score').textContent = team2Score;
+
+        // 탭 기능 이벤트 리스너 추가
+        document.querySelectorAll('.tab-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                const card = button.closest('.card');
+                const tabId = button.dataset.tab;
+
+                card.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active-tab', 'text-white', 'border-yellow-400'));
+                button.classList.add('active-tab', 'text-white', 'border-yellow-400');
+                
+                card.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+                card.querySelector(`#${tabId}`).classList.remove('hidden');
+            });
+        });
+
+         // 기본으로 첫번째 탭 활성화
+        document.querySelectorAll('.card').forEach(card => {
+            const firstTab = card.querySelector('.tab-btn');
+            if(firstTab) firstTab.click();
+        });
+    }
+
+</script>
+</body>
+</html>
+
